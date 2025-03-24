@@ -10,6 +10,7 @@ import {
   Delete,
   UseInterceptors,
   UseFilters,
+  Query, UploadedFile
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -27,13 +28,81 @@ import { SearchContentTrackingDto } from './dto/tracking-content-search-dto';
 import { TrackingContentService } from './tracking_content.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
+import { TrackingContentImportService } from './tracking_content_import.service'; // 👈 Added this
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 
 @Controller('content')
 @ApiTags('tracking-content')
 export class TrackingContentController {
   constructor(
     private readonly trackingContentService: TrackingContentService,
+    private readonly contentImportService: TrackingContentImportService,
   ) {}
+
+ // Start Import Content
+
+ @Post('import')
+ 
+ @UseInterceptors(FileInterceptor('file', {
+   storage: diskStorage({
+     destination: './uploads',
+     filename: (req, file, callback) => {
+       callback(null, `${Date.now()}-${file.originalname}`);
+     }
+   }),
+   fileFilter: (req, file, callback) => {
+     if (!file.mimetype.includes('csv')) {
+       return callback(new Error('Only CSV files are allowed'), false);
+     }
+     callback(null, true);
+   }
+ }))
+
+ async importContent(@UploadedFile() file: Express.Multer.File) {
+  // console.log('komal');
+   const result = await this.contentImportService.importContent(file.path);
+   return { message: 'Content import completed', ...result };
+ }
+
+ @Post('import-assessment')
+ @UseInterceptors(FileInterceptor('file', {
+   storage: diskStorage({
+     destination: './uploads',
+     filename: (req, file, callback) => {
+       callback(null, `${Date.now()}-${file.originalname}`);
+     }
+   }),
+   fileFilter: (req, file, callback) => {
+     if (!file.mimetype.includes('csv')) {
+       return callback(new Error('Only CSV files are allowed'), false);
+     }
+     callback(null, true);
+   }
+ }))
+ async importAssessment(@UploadedFile() file: Express.Multer.File) {
+   if (!file) {
+     throw new Error('No file uploaded');
+   }
+ 
+   const result = await this.contentImportService.importAssessment(file.path);
+   return { message: 'Assessment import completed', ...result };
+ }
+ 
+ 
+ // End Import Content
+
+  // 👈 Added this
+  // @Get('import-content/:userId')
+  // async importContent(@Param('userId') userId: string) {
+  //   return await this.contentImportService.importUserContentConsumption(userId);
+  // }
+
+  // @Get('import-csv')
+  // async importCsv(@Query('file') file?: string) {
+  //   return await this.contentImportService.importUserContentFromCsv(file);
+  // }
+  
 
   //Get Content by Id
   //@UseFilters(new AllExceptionsFilter())
